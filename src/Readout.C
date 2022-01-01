@@ -1,14 +1,12 @@
 /*
-   Jinping Neutrino Experiment
-   One Ton Prototype 
-   Online Readout Program
-
-   Author: Zhe Wang
-   Date:   July 23, 2016
-
-   Single V1751 board, majority trigger
-   Ziyi Guo, Zhe Wang, 2019, 2020
-
+   PMT Test Program
+   Author: Zhang Aiqiang
+   Date: 2022/01/01
+modified from: Jinping Neutrino Experiment, One Ton Prototype, Online Readout Program
+                Author: Zhe Wang
+                Date:   July 23, 2016
+                Single V1751 board, majority trigger
+                Ziyi Guo, Zhe Wang, 2019, 2020
  */
 
 #include <stdio.h>
