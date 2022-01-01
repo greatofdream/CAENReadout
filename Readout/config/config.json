@@ -1,0 +1,12 @@
+{
+    "sampleN": 100400,
+    "postTriggerRatio": 96,
+    "BoardN": 1,
+    "info":[
+        {
+            "BoardId": 0,
+            "triggerch": 1,
+            "samplech": [1, 2, 3]
+        }
+    ]
+}
