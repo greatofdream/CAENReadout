@@ -1,4 +1,5 @@
 #include "config.hxx"
+#include "readout.hxx"
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <vector>
@@ -32,9 +33,15 @@ int main(int argc, char** argv)
     auto configfilename = vm["config"].as<string>();
     Config deviceinfo = Config(settingfilename);
     deviceinfo.setBoard(configfilename);
+    ReadoutData readout = ReadoutData(deviceinfo.boardinfo[0].vmebaseaddress, deviceinfo.boardinfo[0].BoardId, deviceinfo.samplen, deviceinfo.postTriggerRatio);
     if(type=="trigger"){
+        readout.setTriggerMode(1);
     }else if(type=="darknoise"){
+        readout.setTriggerMode(0);
     }else if(type=="extrigger"){
-    
+        readout.setTriggerMode(2);
     }
+    readout.setPedestal();
+    // readout.sampleData();
+    return 0;
 }
