@@ -247,7 +247,7 @@ public:
             unsigned int data;
             ret = CAEN_DGTZ_ReadRegister(handle, ADDR_GLOBAL_TRG_MASK, &data);
             // >>>>>>>>>>> zaq,chy
-            data = data  | 0x0900001;   /* Majority>3, Coincidence window A, channel 0-4 */
+            data = data  | (0x0900000+1<<TriggerCh);   /* Majority>3, Coincidence window A, channel 0-4 */
             ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, data);  //  Majority trigger 4 on channel 0-4
             cout<<hex<<data<<dec<<endl;
         } 
