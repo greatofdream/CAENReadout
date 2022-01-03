@@ -35,13 +35,13 @@ int main(int argc, char** argv)
     deviceinfo.setBoard(configfilename);
     ReadoutData readout = ReadoutData(deviceinfo.boardinfo[0].vmebaseaddress, deviceinfo.boardinfo[0].BoardId, deviceinfo.samplen, deviceinfo.postTriggerRatio);
     if(type=="trigger"){
-        readout.setTriggerMode(1);
-    }else if(type=="darknoise"){
+        readout.setTriggerMode(1, deviceinfo.boardinfo[0].triggerch);
+    }else if(type=="pedestal"){
         readout.setTriggerMode(0);
     }else if(type=="extrigger"){
-        readout.setTriggerMode(2);
+        readout.setTriggerMode(2, deviceinfo.boardinfo[0].triggerch);
     }
     readout.setPedestal();
-    // readout.sampleData();
+    readout.sampleData();
     return 0;
 }

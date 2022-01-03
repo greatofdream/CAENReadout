@@ -44,6 +44,8 @@ public:
     unsigned int VmeBaseAddress;
     int BoardId;
     int postTriggerRatio;
+    int TriggerCh;
+    vector<int> SampleCh;
     CAEN_DGTZ_ErrorCode ret;
     CAEN_DGTZ_BoardInfo_t BoardInfo;
     CAEN_DGTZ_EventInfo_t eventInfo;
@@ -108,9 +110,13 @@ public:
         VmeBaseAddress = vmebaseaddress;
         postTriggerRatio = posttriggerratio;
     }
-    void setTriggerMode(int triggermode, int multithres=1){
+    void setTriggerMode(int triggermode, int triggerch=0, int multithres=1){
         TriggerMode = triggermode;
         MultiThres = multithres;
+        TriggerCh = triggerch;
+    }
+    void setSampleCh(vector<int> &samplech){
+        SampleCh = samplech;
     }
     void setPedestal(string config="config/pedestal.txt"){
         std::ifstream infile( config.c_str() );
@@ -134,7 +140,7 @@ public:
         }
         /* config.txt printout */
         for(c=0;c<8;c++)  {
-            cout<<b<<"\t"<<c<<"\t"<< DcOffset[c]<<"\t"<<Pedestal[c]<<"\t"<<Threshold[c]<<endl;
+            cout<<BoardId<<"\t"<<c<<"\t"<< DcOffset[c]<<"\t"<<Pedestal[c]<<"\t"<<Threshold[c]<<endl;
         }
         if( TriggerMode==0 ) cout<<"Pedestal run"<<endl;
         else if( TriggerMode==1 ) cout<<"Physics run"<<endl;
@@ -166,9 +172,11 @@ public:
         /* Run type */
         if( TriggerMode==0 )  // Pedestal run
         { strcpy(RunType, "Ped"); }
-        else
+        else if( TriggerMode==1 )
         { strcpy(RunType, "Phy"); } 
-
+        else{
+            strcpy(RunType, "Ext");
+        }
         /* Run No file */
         char f;
         while (std::getline(RunNoFile, line))
@@ -199,49 +207,50 @@ public:
         /* Configure V1751 digitizers               */
         /********************************************/
         ret = CAEN_DGTZ_Success;
-        {
-            ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_PCIE_OpticalLink, 0, 0, VmeBaseAddress, &handle);
-	    //cout<<"1751 handle "<<handle<<endl;
-            if(ret != CAEN_DGTZ_Success) {
-                cout<<"Can't open digitizer"<<endl;
-                logfile<<"Can't open digitizer"<<endl;
-                goto QuitProgram;
-            }
-            /* Once we have the handler to the digitizer, we use it to call the other functions */
-            ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
-            cout<<endl<<"Connected to CAEN Digitizer Model "<<BoardInfo.ModelName<<", recognized as board "<<b<<endl;
-            cout<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl; 
-            logfile<<endl<<"Connected to CAEN Digitizer Model "<<BoardInfo.ModelName<<", recognized as board "<<b<<endl;
-            logfile<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl;	
-        //    ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);            /* Get Board Info */
-            ret = CAEN_DGTZ_Reset(handle);                          /* Reset Digitizer */
-            ret = CAEN_DGTZ_SetRecordLength(handle,NSAMPLES);       /* Set the lenght of each waveform (in samples) */
-            ret = CAEN_DGTZ_SetChannelEnableMask(handle,0xFF);      /* Enable channel 0-7 */
-            //ret = CAEN_DGTZ_SetInterruptConfig(handle,CAEN_DGTZ_DISABLE,1,1,1,CAEN_DGTZ_IRQ_MODE_ROAK);
-            ret = CAEN_DGTZ_SetPostTriggerSize(handle, postTriggerRatio);   /* Post trigger size in percentage */
 
-            for( c=0; c<8; c++ )  {
-                ret = CAEN_DGTZ_SetChannelDCOffset(handle, c, DcOffset[c]);              /* Set channel DC offsect */
+        ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_PCIE_OpticalLink, 0, 0, VmeBaseAddress, &handle);
+	    //cout<<"1751 handle "<<handle<<endl;
+        if(ret != CAEN_DGTZ_Success) {
+            cout<<"Can't open digitizer"<<endl;
+            logfile<<"Can't open digitizer"<<endl;
+            goto QuitProgram;
+        }
+        /* Once we have the handler to the digitizer, we use it to call the other functions */
+        ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
+        cout<<endl<<"Connected to CAEN Digitizer Model "<<BoardInfo.ModelName<<", recognized as board "<<b<<endl;
+        cout<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl; 
+        logfile<<endl<<"Connected to CAEN Digitizer Model "<<BoardInfo.ModelName<<", recognized as board "<<b<<endl;
+        logfile<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl;	
+        //    ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);            /* Get Board Info */
+        ret = CAEN_DGTZ_Reset(handle);                          /* Reset Digitizer */
+        ret = CAEN_DGTZ_SetRecordLength(handle,NSAMPLES);       /* Set the lenght of each waveform (in samples) */
+        ret = CAEN_DGTZ_SetChannelEnableMask(handle,0xFF);      /* Enable channel 0-7 */
+        //ret = CAEN_DGTZ_SetInterruptConfig(handle,CAEN_DGTZ_DISABLE,1,1,1,CAEN_DGTZ_IRQ_MODE_ROAK);
+        ret = CAEN_DGTZ_SetPostTriggerSize(handle, postTriggerRatio);   /* Post trigger size in percentage */
+
+        for( c=0; c<8; c++ )  {
+            ret = CAEN_DGTZ_SetChannelDCOffset(handle, c, DcOffset[c]);              /* Set channel DC offsect */
             ret = CAEN_DGTZ_SetChannelTriggerThreshold(handle, c, Threshold[c]);     /* Set selfTrigger threshold */
-                ret = CAEN_DGTZ_SetTriggerPolarity(handle, c, CAEN_DGTZ_TriggerOnFallingEdge);  /* Set falling edge trigger for channel 0 */
-            }
+            ret = CAEN_DGTZ_SetTriggerPolarity(handle, c, CAEN_DGTZ_TriggerOnFallingEdge);  /* Set falling edge trigger for channel 0 */
+        }
 
             // >>>> zaq chy
-            c = 0;
-            ret = CAEN_DGTZ_SetTriggerPolarity(handle, c, CAEN_DGTZ_TriggerOnRisingEdge);  /* Set falling edge trigger for channel 0 */
+        if(TriggerMode==2){//外部触发
+            ret = CAEN_DGTZ_SetTriggerPolarity(handle, TriggerCh, CAEN_DGTZ_TriggerOnRisingEdge);  /* Set falling edge trigger for channel 0 */
+        }
             // <<<<<<
 
-            ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_EXTOUT_ONLY, 0xFF);  /* Set trigger on channel 0-7 to be EXTOUT_ONLY */
+        ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_EXTOUT_ONLY, 0xFF);  /* Set trigger on channel 0-7 to be EXTOUT_ONLY */
 
             //cout<<hex<<data<<dec<<endl;
-            if( TriggerMode == 1 )  {
+        if( TriggerMode == 1 || TriggerMode==2)  {
             unsigned int data;
             ret = CAEN_DGTZ_ReadRegister(handle, ADDR_GLOBAL_TRG_MASK, &data);
             // >>>>>>>>>>> zaq,chy
             data = data  | 0x0900001;   /* Majority>3, Coincidence window A, channel 0-4 */
             ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, data);  //  Majority trigger 4 on channel 0-4
             cout<<hex<<data<<dec<<endl;
-            } 
+        } 
 
             //if( TriggerMode == 1 )  {
             //ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY, 0xFF);
@@ -259,117 +268,114 @@ public:
             }
             */
 
-            ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle,1);                             /* Set the max number of events to transfer in a sigle readout */
-            // >>>>>>>>>>>>>>> zaq chy
-            ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_SW_CONTROLLED);   /* Set the acquisition mode */
-            //ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_FIRST_TRG_CONTROLLED);   /* Set the acquisition mode */
+        ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle,1);                             /* Set the max number of events to transfer in a sigle readout */
+        // >>>>>>>>>>>>>>> zaq chy
+        ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_SW_CONTROLLED);   /* Set the acquisition mode */
+        //ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_FIRST_TRG_CONTROLLED);   /* Set the acquisition mode */
 
-            if(ret != CAEN_DGTZ_Success) {
-                cout<<"Errors during Digitizer Configuration."<<endl;
-                logfile<<"Errors during Digitizer Configuration."<<endl;
-                goto QuitProgram;
-            }
+        if(ret != CAEN_DGTZ_Success) {
+            cout<<"Errors during Digitizer Configuration."<<endl;
+            logfile<<"Errors during Digitizer Configuration."<<endl;
+            goto QuitProgram;
         }
 
-    /* Malloc Readout Buffer.
-    NOTE1: The mallocs must be done AFTER digitizer's configuration!
-    NOTE2: In this example we use the same buffer, for every board. We
-    use the first board to allocate the buffer, so if the configuration
-    is different for different boards (or you use different board models), may be
-    that the size to allocate must be different for each one. */
-    ret = CAEN_DGTZ_MallocReadoutBuffer(handle,&buffer,&size);
-    ret = CAEN_DGTZ_AllocateEvent(handle, (void**)&Event16);
+        /* Malloc Readout Buffer.
+        NOTE1: The mallocs must be done AFTER digitizer's configuration!
+        NOTE2: In this example we use the same buffer, for every board. We
+        use the first board to allocate the buffer, so if the configuration
+        is different for different boards (or you use different board models), may be
+        that the size to allocate must be different for each one. */
+        ret = CAEN_DGTZ_MallocReadoutBuffer(handle,&buffer,&size);
+        ret = CAEN_DGTZ_AllocateEvent(handle, (void**)&Event16);
 
-    /********************************************/
-    /*           Output Root Tree               */
-    /********************************************/
-    /* filename: Jinping_1ton_Phy_20170401_00i000001.root */
-    OutFile = new TFile(Output,"recreate");
+        /********************************************/
+        /*           Output Root Tree               */
+        /********************************************/
+        /* filename: Jinping_1ton_Phy_20170401_00i000001.root */
+        OutFile = new TFile(Output,"recreate");
 
-    ReadoutTree = new TTree("Readout", "TriggerReadout");
-    ReadoutTree->SetMaxTreeSize(200000000);  // 200M, otherwise split into a new file
-    ReadoutTree->Branch("RunNo",      &Readout.RunNo);
-    ReadoutTree->Branch("TriggerNo",  &Readout.TriggerNo);
-    ReadoutTree->Branch("TriggerType",&Readout.TriggerType);
-    ReadoutTree->Branch("TriggerTag", &Readout.TriggerTag);
-    ReadoutTree->Branch("DetectorID", &Readout.DetectorID);
-    ReadoutTree->Branch("Sec",        &Readout.Sec);
-    ReadoutTree->Branch("NanoSec",    &Readout.NanoSec);
-    ReadoutTree->Branch("ChannelId",  &Readout.ChannelId);
-    ReadoutTree->Branch("Waveform",   &(Readout.Waveform));
+        ReadoutTree = new TTree("Readout", "TriggerReadout");
+        ReadoutTree->SetMaxTreeSize(200000000);  // 200M, otherwise split into a new file
+        ReadoutTree->Branch("RunNo",      &Readout.RunNo);
+        ReadoutTree->Branch("TriggerNo",  &Readout.TriggerNo);
+        ReadoutTree->Branch("TriggerType",&Readout.TriggerType);
+        ReadoutTree->Branch("TriggerTag", &Readout.TriggerTag);
+        ReadoutTree->Branch("DetectorID", &Readout.DetectorID);
+        ReadoutTree->Branch("Sec",        &Readout.Sec);
+        ReadoutTree->Branch("NanoSec",    &Readout.NanoSec);
+        ReadoutTree->Branch("ChannelId",  &Readout.ChannelId);
+        ReadoutTree->Branch("Waveform",   &(Readout.Waveform));
 
-    /********************************************/
-    /*           Start Run Operation            */
-    /********************************************/
-    usleep(300000);
+        /********************************************/
+        /*           Start Run Operation            */
+        /********************************************/
+        usleep(300000);
     
-    ret = CAEN_DGTZ_ClearData(handle);
+        ret = CAEN_DGTZ_ClearData(handle);
 
-    ret = CAEN_DGTZ_SWStartAcquisition(handle);
+        ret = CAEN_DGTZ_SWStartAcquisition(handle);
 
-    //cout<<"CAEN_DGTZ_SWStartAcquisition"<<endl;
-    //cout<<"Data taking started"<<endl;
-    logfile<<"Data taking started"<<endl;
+        //cout<<"CAEN_DGTZ_SWStartAcquisition"<<endl;
+        //cout<<"Data taking started"<<endl;
+        logfile<<"Data taking started"<<endl;
 
-    /********************************************/
-    /*          Start acquisition loop          */
-    /********************************************/
-    struct timeval tv;
-    gettimeofday(&tv, 0);
-    T0Sec = tv.tv_sec; T0NanoSec = tv.tv_usec*1000;
-    TLastSec = T0Sec;
+        /********************************************/
+        /*          Start acquisition loop          */
+        /********************************************/
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        T0Sec = tv.tv_sec; T0NanoSec = tv.tv_usec*1000;
+        TLastSec = T0Sec;
 
-    /* Write waveform to json file. Add by Guo Ziyi 2017/08/08 */
-    TLastSec_json = tv.tv_sec+tv.tv_usec*1e-6;
-    /* End */
+        /* Write waveform to json file. Add by Guo Ziyi 2017/08/08 */
+        TLastSec_json = tv.tv_sec+tv.tv_usec*1e-6;
+        /* End */
 
-    uint32_t FADCdataReady;
-    int Trigger;
-    uint32_t nEvts;
-    uint32_t Counter;
-    long long TimeTag;
-    long long PrevTimeTag;
-    long long TimeTagSec, TimeTagNanoSec;
-    uint32_t NRoll;
+        uint32_t FADCdataReady;
+        int Trigger;
+        uint32_t nEvts;
+        uint32_t Counter;
+        long long TimeTag;
+        long long PrevTimeTag;
+        long long TimeTagSec, TimeTagNanoSec;
+        uint32_t NRoll;
     
         nEvts=0;
         Counter=0;
         NRoll=0;
         PrevTimeTag = 0;
     
-    unsigned int offset, thres;
-    for(int chl=0; chl<8; chl++) {
-        CAEN_DGTZ_GetChannelDCOffset( handle, chl, &offset );
-        CAEN_DGTZ_GetChannelTriggerThreshold( handle, chl, &thres );
-	//cout<<offset<<" "<<thres<<"  ";
-      }
+        unsigned int offset, thres;
+        for(int chl=0; chl<8; chl++) {
+            CAEN_DGTZ_GetChannelDCOffset( handle, chl, &offset );
+            CAEN_DGTZ_GetChannelTriggerThreshold( handle, chl, &thres );
+        //cout<<offset<<" "<<thres<<"  ";
+        }
       //cout<<endl;
 
 
-    while(1) {
-       
+        while(1) {
+            if( TriggerMode == 0 ) {
+                usleep(1e4);
+                ret = CAEN_DGTZ_SendSWtrigger(handle);
+                }
 
-       if( TriggerMode == 0 ) {
-          usleep(1e4);
-	      ret = CAEN_DGTZ_SendSWtrigger(handle);
-	    }
-
-        /* All boards must have triggers at the same time, otherwise wait. */
-        Trigger=1;
+            /* All boards must have triggers at the same time, otherwise wait. */
+            Trigger=1;
             // Check vme status register to get the data ready bit
             ret = CAEN_DGTZ_ReadRegister(handle, 0xEF04, &FADCdataReady); //vme status
             FADCdataReady = FADCdataReady & 0x1;
-          //  cout<<"Data Ready : "<<FADCdataReady<<endl;
+            //  cout<<"Data Ready : "<<FADCdataReady<<endl;
             Trigger = Trigger & FADCdataReady;
-        long long dtWaveform;
+            long long dtWaveform;
 
-    //    cout<<FADCdataReady<<endl;
-        /* Decode data */
-        if( Trigger ) {
-            NTriggers++;
-            TriggerNo++;
-            Readout.ChannelId.clear();
-            Readout.Waveform.clear();
+            //    cout<<FADCdataReady<<endl;
+            /* Decode data */
+            if( Trigger ) {
+                NTriggers++;
+                TriggerNo++;
+                Readout.ChannelId.clear();
+                Readout.Waveform.clear();
 
                 ret = CAEN_DGTZ_ReadData(handle,CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,buffer,&bsize);  /* Read the buffer from the digitizer */
 
@@ -436,12 +442,12 @@ public:
                     }
 
                     /* Discard trival channel information if not software trigger, zero suppression */
-		    /*
-                    if(TriggerMode == 1 && OverThreshold == 0) {
-		        Readout.ChannelId.pop_back();	      
-		        Readout.Waveform.erase( Readout.Waveform.end()-Ns[b], Readout.Waveform.end() );
-                    }
-		    */
+                /*
+                        if(TriggerMode == 1 && OverThreshold == 0) {
+                    Readout.ChannelId.pop_back();	      
+                    Readout.Waveform.erase( Readout.Waveform.end()-Ns[b], Readout.Waveform.end() );
+                        }
+                */
 		    
                 }
                 Readout.RunNo = RunNo;
@@ -490,28 +496,28 @@ public:
         if (c == 1) goto Continue;
     }   
 
-Continue:
-        cout<<"\nBoard "<<b<<": Retrieved "<<Counter+1<<" Events\n"<<endl;
-        logfile<<"\nBoard "<<b<<": Retrieved "<<Counter+1<<" Events\n"<<endl;
-    goto QuitProgram;
+    Continue:
+            cout<<"\nBoard "<<b<<": Retrieved "<<Counter+1<<" Events\n"<<endl;
+            logfile<<"\nBoard "<<b<<": Retrieved "<<Counter+1<<" Events\n"<<endl;
+        goto QuitProgram;
 
-    /********************************************/
-    /*          Quit program routine            */
-    /********************************************/
-QuitProgram:
-    // Free the buffers and close the digitizers
-        //ret = CAEN_DGTZ_ClearData(handle);
-        ret = CAEN_DGTZ_FreeReadoutBuffer(&buffer);
-        ret = CAEN_DGTZ_SWStopAcquisition(handle);
-        ret = CAEN_DGTZ_CloseDigitizer(handle);   
+        /********************************************/
+        /*          Quit program routine            */
+        /********************************************/
+    QuitProgram:
+        // Free the buffers and close the digitizers
+            //ret = CAEN_DGTZ_ClearData(handle);
+            ret = CAEN_DGTZ_FreeReadoutBuffer(&buffer);
+            ret = CAEN_DGTZ_SWStopAcquisition(handle);
+            ret = CAEN_DGTZ_CloseDigitizer(handle);   
 
-    if(ReadoutTree)  {
-        ReadoutTree->Write();
-        // Pay attention to the last line. It is necessary to file splitting.
-        // http://root.cern.ch/root/htmldoc/TTree.html#TTree:ChangeFile
-        OutFile = ReadoutTree->GetCurrentFile(); //to get the pointer to the current file
-        OutFile->Close();
-    }
+        if(ReadoutTree)  {
+            ReadoutTree->Write();
+            // Pay attention to the last line. It is necessary to file splitting.
+            // http://root.cern.ch/root/htmldoc/TTree.html#TTree:ChangeFile
+            OutFile = ReadoutTree->GetCurrentFile(); //to get the pointer to the current file
+            OutFile->Close();
+        }
     }
 };
 #endif
