@@ -34,6 +34,7 @@ int main(int argc, char** argv)
     Config deviceinfo = Config(settingfilename);
     deviceinfo.setBoard(configfilename);
     ReadoutData readout = ReadoutData(deviceinfo.boardinfo[0].vmebaseaddress, deviceinfo.boardinfo[0].BoardId, deviceinfo.samplen, deviceinfo.postTriggerRatio);
+    readout.readRunNo(inputfilename);
     if(type=="trigger"){
         readout.setTriggerMode(1, deviceinfo.boardinfo[0].triggerch);
     }else if(type=="pedestal"){

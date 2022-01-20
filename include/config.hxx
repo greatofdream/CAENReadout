@@ -46,7 +46,7 @@ public:
         boardinfo.push_back(binfo);
 
         cout<<"sampleN:"<<samplen<<endl;
-        cout<<"boardid:"<<binfo.vmebaseaddress<<endl;
+        cout<<"boardid:"<<std::hex<<std::setw(2) <<binfo.vmebaseaddress<<std::dec<<endl;
         // auto it = board.get_child("info");
         // for(auto it2=it.begin(); it2!=it.end();it2++){
         //     Board binfo;

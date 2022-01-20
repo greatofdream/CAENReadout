@@ -114,6 +114,7 @@ public:
         TriggerMode = triggermode;
         MultiThres = multithres;
         TriggerCh = triggerch;
+        cout<<"Trigger Channel:"<< TriggerCh<<endl;
     }
     void setSampleCh(vector<int> &samplech){
         SampleCh = samplech;
@@ -135,7 +136,7 @@ public:
             iss>> b >> c;
             if(b==BoardId){
                 iss>> DcOffset[c] >> Pedestal[c] >> Threshold[c];
-                Threshold[c] = Pedestal[c]-10;
+                // Threshold[c] = Pedestal[c]-10;
             }
         }
         /* config.txt printout */
@@ -154,31 +155,16 @@ public:
         }
         return c;
     }
-    void sampleData(){
-        time_t tm;
-        struct tm *ptm;
-        time(&tm);
-        ptm = localtime(&tm);
-
-        std::string RunNoFN = "config/RunNo.txt";
+    int readRunNo(string RunNoFN= "config/RunNo.txt"){
         std::fstream RunNoFile( RunNoFN.c_str() );
 
         if( !(RunNoFile.is_open()) ) {
             cout<<"Run number file "<<RunNoFN.c_str()<<" cannot be open."<<endl;
             exit(0);
         }
-        std::string line;
-
-        /* Run type */
-        if( TriggerMode==0 )  // Pedestal run
-        { strcpy(RunType, "Ped"); }
-        else if( TriggerMode==1 )
-        { strcpy(RunType, "Phy"); } 
-        else{
-            strcpy(RunType, "Ext");
-        }
         /* Run No file */
         char f;
+        std::string line;
         while (std::getline(RunNoFile, line))
         {
             f=line[0];
@@ -188,18 +174,31 @@ public:
                 break;
             }
         }
-
-        sprintf(Output,"data/Jinping_1ton_%s_%.4d%.2d%.2d_%.8d.root",RunType,ptm->tm_year+1900,ptm->tm_mon+1,ptm->tm_mday,RunNo);
-        sprintf(LogFil,"log/Jinping_1ton_%s_%.4d%.2d%.2d_%.8d.log",RunType,ptm->tm_year+1900,ptm->tm_mon+1,ptm->tm_mday,RunNo);
-        cout<<"Data written to "<<Output<<endl;
-        cout<<"Log file written to "<<LogFil<<endl;
-
         // RunNo += 1, save back to the same file.
         RunNoFile.close();
         std::ofstream RunNoUpdate( RunNoFN.c_str() );
         unsigned int NewRunNo=RunNo+1;
         RunNoUpdate << NewRunNo <<endl;
+    }
+    void sampleData(){
+        time_t tm;
+        struct tm *ptm;
+        time(&tm);
+        ptm = localtime(&tm);
 
+        /* Run type */
+        if( TriggerMode==0 )  // Pedestal run
+        { strcpy(RunType, "Ped"); }
+        else if( TriggerMode==1 )
+        { strcpy(RunType, "Phy"); } 
+        else{
+            strcpy(RunType, "Ext");
+        }
+
+        sprintf(Output,"data/Jinping_1ton_%s_%.4d%.2d%.2d_%.8d.root",RunType,ptm->tm_year+1900,ptm->tm_mon+1,ptm->tm_mday,RunNo);
+        sprintf(LogFil,"log/Jinping_1ton_%s_%.4d%.2d%.2d_%.8d.log",RunType,ptm->tm_year+1900,ptm->tm_mon+1,ptm->tm_mday,RunNo);
+        cout<<"Data written to "<<Output<<endl;
+        cout<<"Log file written to "<<LogFil<<endl;
         std::ofstream logfile( LogFil );
 
 
@@ -234,20 +233,20 @@ public:
             ret = CAEN_DGTZ_SetTriggerPolarity(handle, c, CAEN_DGTZ_TriggerOnFallingEdge);  /* Set falling edge trigger for channel 0 */
         }
 
-            // >>>> zaq chy
+        // >>>> zaq chy
         if(TriggerMode==2){//外部触发
             ret = CAEN_DGTZ_SetTriggerPolarity(handle, TriggerCh, CAEN_DGTZ_TriggerOnRisingEdge);  /* Set falling edge trigger for channel 0 */
         }
-            // <<<<<<
+        // <<<<<<
 
         ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_EXTOUT_ONLY, 0xFF);  /* Set trigger on channel 0-7 to be EXTOUT_ONLY */
 
-            //cout<<hex<<data<<dec<<endl;
+        //cout<<hex<<data<<dec<<endl;
         if( TriggerMode == 1 || TriggerMode==2)  {
             unsigned int data;
             ret = CAEN_DGTZ_ReadRegister(handle, ADDR_GLOBAL_TRG_MASK, &data);
             // >>>>>>>>>>> zaq,chy
-            data = data  | (0x0900000+1<<TriggerCh);   /* Majority>3, Coincidence window A, channel 0-4 */
+            data = data  | (0x0900000+(1<<TriggerCh));   /* Majority>3, Coincidence window A, channel 0-4 */
             ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, data);  //  Majority trigger 4 on channel 0-4
             cout<<hex<<data<<dec<<endl;
         } 
@@ -415,40 +414,39 @@ public:
 				//cout<<b<<":\t"<<dtWaveform[b]+TrigTDelay[b]<<endl;
             
 
-                for(i=0; i<8; i++)  {
+                for(i=0; i<SampleCh.size(); i++)  {
                     OverThreshold = 0;
-                    Readout.ChannelId.push_back(i);
+                    Readout.ChannelId.push_back(SampleCh[i]);
                     //cout<<"Ns["<<b<<"]: "<<Ns[b]<<endl;
-                /*
-                if( b==0 && i==0 )  {
-                for(int kk=0; kk<10; kk++)  {
-                cout<< Event16[b]->DataChannel[i][kk] <<" ";
-                }
-                cout<<endl;
-                }
-                */
+                    /*
+                    if( b==0 && i==0 )  {
+                    for(int kk=0; kk<10; kk++)  {
+                    cout<< Event16[b]->DataChannel[i][kk] <<" ";
+                    }
+                    cout<<endl;
+                    }
+                    */
 
                     for(j=0; j<Ns; j++)  {
 
                         int idx = j;
-                        Readout.Waveform.push_back( Event16->DataChannel[i][idx] );
+                        Readout.Waveform.push_back( Event16->DataChannel[SampleCh[i]][idx] );
 
                         /* Do a sample-by-sample comparison with threshold */
                         if( OverThreshold == 0 )  {
-                            if( Event16->DataChannel[i][idx] <= Threshold[i] )  {
+                            if( Event16->DataChannel[SampleCh[i]][idx] <= Threshold[SampleCh[i]] )  {
                                 OverThreshold = 1;
                             }
                         }
                     }
 
                     /* Discard trival channel information if not software trigger, zero suppression */
-                /*
-                        if(TriggerMode == 1 && OverThreshold == 0) {
-                    Readout.ChannelId.pop_back();	      
-                    Readout.Waveform.erase( Readout.Waveform.end()-Ns[b], Readout.Waveform.end() );
-                        }
-                */
-		    
+                    /*
+                            if(TriggerMode == 1 && OverThreshold == 0) {
+                        Readout.ChannelId.pop_back();	      
+                        Readout.Waveform.erase( Readout.Waveform.end()-Ns[b], Readout.Waveform.end() );
+                            }
+                    */
                 }
                 Readout.RunNo = RunNo;
                 Readout.DetectorID = 1;
