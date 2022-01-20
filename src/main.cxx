@@ -42,6 +42,7 @@ int main(int argc, char** argv)
     }else if(type=="extrigger"){
         readout.setTriggerMode(2, deviceinfo.boardinfo[0].triggerch);
     }
+    readout.setSampleCh(deviceinfo.boardinfo[0].samplech);
     readout.setPedestal();
     readout.sampleData();
     return 0;
