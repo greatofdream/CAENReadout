@@ -111,5 +111,8 @@ public:
     int checkCommand();
     int readRunNo(string RunNoFN= "config/RunNo.txt");
     void sampleData();
+    void setDevice();
+    void SampleOne();
+   
 };
 #endif

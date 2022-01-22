@@ -14,6 +14,127 @@ void ReadoutData::setTriggerMode(int triggermode, int triggerch, int multithres)
 void ReadoutData::setSampleCh(vector<int> &samplech){
         SampleCh = samplech;
     }
+void ReadoutData::setDevice(){
+    /********************************************/
+        /* Configure V1751 digitizers               */
+        /********************************************/
+        ret = CAEN_DGTZ_Success;
+
+        ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_PCIE_OpticalLink, 0, 0, VmeBaseAddress, &handle);
+	    //cout<<"1751 handle "<<handle<<endl;
+        if(ret != CAEN_DGTZ_Success) {
+            cout<<"Can't open digitizer"<<endl;
+            cout<<"Can't open digitizer"<<endl;
+            goto QuitProgram;
+        }
+        /* Once we have the handler to the digitizer, we use it to call the other functions */
+        ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
+        cout<<endl<<"Connected to CAEN Digitizer Model "<<BoardInfo.ModelName<<", recognized as board "<<b<<endl;
+        cout<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl; 
+        cout<<endl<<"Connected to CAEN Digitizer Model "<<BoardInfo.ModelName<<", recognized as board "<<b<<endl;
+        cout<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl;	
+        //    ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);            /* Get Board Info */
+        ret = CAEN_DGTZ_Reset(handle);                          /* Reset Digitizer */
+        ret = CAEN_DGTZ_SetRecordLength(handle,NSAMPLES);       /* Set the lenght of each waveform (in samples) */
+        ret = CAEN_DGTZ_SetChannelEnableMask(handle,0xFF);      /* Enable channel 0-7 */
+        //ret = CAEN_DGTZ_SetInterruptConfig(handle,CAEN_DGTZ_DISABLE,1,1,1,CAEN_DGTZ_IRQ_MODE_ROAK);
+        ret = CAEN_DGTZ_SetPostTriggerSize(handle, postTriggerRatio);   /* Post trigger size in percentage */
+
+        for( c=0; c<8; c++ )  {
+            ret = CAEN_DGTZ_SetChannelDCOffset(handle, c, DcOffset[c]);              /* Set channel DC offsect */
+            ret = CAEN_DGTZ_SetChannelTriggerThreshold(handle, c, Threshold[c]);     /* Set selfTrigger threshold */
+            ret = CAEN_DGTZ_SetTriggerPolarity(handle, c, CAEN_DGTZ_TriggerOnFallingEdge);  /* Set falling edge trigger for channel 0 */
+        }
+
+        // >>>> zaq chy
+        if(TriggerMode==2){//外部触发
+            ret = CAEN_DGTZ_SetTriggerPolarity(handle, TriggerCh, CAEN_DGTZ_TriggerOnRisingEdge);  /* Set falling edge trigger for channel 0 */
+        }
+        // <<<<<<
+
+        ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_EXTOUT_ONLY, 0xFF);  /* Set trigger on channel 0-7 to be EXTOUT_ONLY */
+
+        //cout<<hex<<data<<dec<<endl;
+        if( TriggerMode == 1 || TriggerMode==2)  {
+            unsigned int data;
+            ret = CAEN_DGTZ_ReadRegister(handle, ADDR_GLOBAL_TRG_MASK, &data);
+            // >>>>>>>>>>> zaq,chy
+            data = data  | (0x0900000+(1<<TriggerCh));   /* Majority>3, Coincidence window A, channel 0-4 */
+            ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, data);  //  Majority trigger 4 on channel 0-4
+            cout<<hex<<data<<dec<<endl;
+        }
+        ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle,1);                             /* Set the max number of events to transfer in a sigle readout */
+        // >>>>>>>>>>>>>>> zaq chy
+        ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_SW_CONTROLLED);   /* Set the acquisition mode */
+        //ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_FIRST_TRG_CONTROLLED);   /* Set the acquisition mode */
+
+        if(ret != CAEN_DGTZ_Success) {
+            cout<<"Errors during Digitizer Configuration."<<endl;
+            cout<<"Errors during Digitizer Configuration."<<endl;
+            goto QuitProgram;
+        }
+        ret = CAEN_DGTZ_MallocReadoutBuffer(handle,&buffer,&size);
+        ret = CAEN_DGTZ_AllocateEvent(handle, (void**)&Event16);
+        ret = CAEN_DGTZ_ClearData(handle);
+
+        ret = CAEN_DGTZ_SWStartAcquisition(handle);
+        unsigned int offset, thres;
+        for(int chl=0; chl<8; chl++) {
+            CAEN_DGTZ_GetChannelDCOffset( handle, chl, &offset );
+            CAEN_DGTZ_GetChannelTriggerThreshold( handle, chl, &thres );
+        //cout<<offset<<" "<<thres<<"  ";
+        }
+    QuitProgram:
+        // Free the buffers and close the digitizers
+            //ret = CAEN_DGTZ_ClearData(handle);
+            ret = CAEN_DGTZ_FreeReadoutBuffer(&buffer);
+            ret = CAEN_DGTZ_SWStopAcquisition(handle);
+            ret = CAEN_DGTZ_CloseDigitizer(handle);   
+
+}
+void ReadoutData::SampleOne(){
+    while(1) {
+        int Trigger = 1;
+        uint32_t nEvts = 0;
+        uint32_t FADCdataReady;
+        // Check vme status register to get the data ready bit
+        ret = CAEN_DGTZ_ReadRegister(handle, 0xEF04, &FADCdataReady); //vme status
+        FADCdataReady = FADCdataReady & 0x1;
+        //  cout<<"Data Ready : "<<FADCdataReady<<endl;
+        Trigger = Trigger & FADCdataReady;
+        long long dtWaveform;
+        if( Trigger ) {
+            Readout.ChannelId.clear();
+            Readout.Waveform.clear();
+            ret = CAEN_DGTZ_ReadData(handle,CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,buffer,&bsize);  /* Read the buffer from the digitizer */
+
+            /* decoding */
+            ret = CAEN_DGTZ_GetNumEvents(handle, buffer, bsize, &nEvts);
+            ret = CAEN_DGTZ_GetEventInfo(handle,buffer,bsize,0,&eventInfo,&evtptr);
+            ret = CAEN_DGTZ_DecodeEvent(handle,evtptr,(void**)&Event16);
+            Ns = Event16->ChSize[0];
+            for(i=0; i<SampleCh.size(); i++)  {
+                    OverThreshold = 0;
+                    Readout.ChannelId.push_back(SampleCh[i]);
+                    
+                    for(j=0; j<Ns; j++)  {
+
+                        int idx = j;
+                        Readout.Waveform.push_back( Event16->DataChannel[SampleCh[i]][idx] );
+
+                        /* Do a sample-by-sample comparison with threshold */
+                        if( OverThreshold == 0 )  {
+                            if( Event16->DataChannel[SampleCh[i]][idx] <= Threshold[SampleCh[i]] )  {
+                                OverThreshold = 1;
+                            }
+                        }
+                    }
+            }
+        break;
+        }
+    }
+    return;
+}
 void ReadoutData::setPedestal(string config){
         std::ifstream infile( config.c_str() );
         if( !(infile.is_open()) ) {
@@ -233,7 +354,7 @@ void ReadoutData::sampleData(){
         long long PrevTimeTag;
         long long TimeTagSec, TimeTagNanoSec;
         uint32_t NRoll;
-    
+
         nEvts=0;
         Counter=0;
         NRoll=0;
