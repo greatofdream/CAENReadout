@@ -113,6 +113,7 @@ public:
     void sampleData();
     void setDevice();
     void SampleOne();
+    void close();
    
 };
 #endif
