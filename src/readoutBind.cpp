@@ -41,7 +41,13 @@ PYBIND11_MODULE(ReadoutPB, m) {
         .def("readRunNo", &ReadoutData::readRunNo)
         .def("setDevice", &ReadoutData::setDevice)
         .def("SampleOne", &ReadoutData::SampleOne)
+        .def("close", &ReadoutData::close)
         .def_readwrite("readout", &ReadoutData::Readout);
+
+    py::class_<Readout_t>(m, "Readout_t")
+        .def(py::init<>())
+        .def_readwrite("waveform", &Readout_t::Waveform)
+        .def_readwrite("channelId", &Readout_t::ChannelId);
 
     
 #ifdef VERSION_INFO

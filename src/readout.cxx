@@ -16,8 +16,8 @@ void ReadoutData::setSampleCh(vector<int> &samplech){
     }
 void ReadoutData::setDevice(){
     /********************************************/
-        /* Configure V1751 digitizers               */
-        /********************************************/
+    /* Configure V1751 digitizers               */
+    /********************************************/
         ret = CAEN_DGTZ_Success;
 
         ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_PCIE_OpticalLink, 0, 0, VmeBaseAddress, &handle);
@@ -25,7 +25,8 @@ void ReadoutData::setDevice(){
         if(ret != CAEN_DGTZ_Success) {
             cout<<"Can't open digitizer"<<endl;
             cout<<"Can't open digitizer"<<endl;
-            goto QuitProgram;
+            close();
+            return;
         }
         /* Once we have the handler to the digitizer, we use it to call the other functions */
         ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
@@ -35,11 +36,12 @@ void ReadoutData::setDevice(){
         cout<<"ROC FPGA Release is "<<BoardInfo.ROC_FirmwareRel<<"; \tAMC FPGA Release is "<<BoardInfo.AMC_FirmwareRel<<endl;	
         //    ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);            /* Get Board Info */
         ret = CAEN_DGTZ_Reset(handle);                          /* Reset Digitizer */
-        ret = CAEN_DGTZ_SetRecordLength(handle,NSAMPLES);       /* Set the lenght of each waveform (in samples) */
+        ret = CAEN_DGTZ_SetRecordLength(handle, NSAMPLES);       /* Set the lenght of each waveform (in samples) */
         ret = CAEN_DGTZ_SetChannelEnableMask(handle,0xFF);      /* Enable channel 0-7 */
         //ret = CAEN_DGTZ_SetInterruptConfig(handle,CAEN_DGTZ_DISABLE,1,1,1,CAEN_DGTZ_IRQ_MODE_ROAK);
         ret = CAEN_DGTZ_SetPostTriggerSize(handle, postTriggerRatio);   /* Post trigger size in percentage */
-
+        cout<<"set the sample length "<<NSAMPLES<<endl;
+        cout<<"set the postTriggerRatio "<<postTriggerRatio<<endl;
         for( c=0; c<8; c++ )  {
             ret = CAEN_DGTZ_SetChannelDCOffset(handle, c, DcOffset[c]);              /* Set channel DC offsect */
             ret = CAEN_DGTZ_SetChannelTriggerThreshold(handle, c, Threshold[c]);     /* Set selfTrigger threshold */
@@ -49,6 +51,7 @@ void ReadoutData::setDevice(){
         // >>>> zaq chy
         if(TriggerMode==2){//外部触发
             ret = CAEN_DGTZ_SetTriggerPolarity(handle, TriggerCh, CAEN_DGTZ_TriggerOnRisingEdge);  /* Set falling edge trigger for channel 0 */
+            cout<<"set external trigger polarity for ch "<<TriggerCh<<endl;
         }
         // <<<<<<
 
@@ -65,45 +68,41 @@ void ReadoutData::setDevice(){
         }
         ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle,1);                             /* Set the max number of events to transfer in a sigle readout */
         // >>>>>>>>>>>>>>> zaq chy
-        ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_SW_CONTROLLED);   /* Set the acquisition mode */
+        ret = CAEN_DGTZ_SetAcquisitionMode(handle, CAEN_DGTZ_SW_CONTROLLED);   /* Set the acquisition mode */
         //ret = CAEN_DGTZ_SetAcquisitionMode(handle,CAEN_DGTZ_FIRST_TRG_CONTROLLED);   /* Set the acquisition mode */
 
         if(ret != CAEN_DGTZ_Success) {
             cout<<"Errors during Digitizer Configuration."<<endl;
             cout<<"Errors during Digitizer Configuration."<<endl;
-            goto QuitProgram;
+            close();
+            return;
         }
-        ret = CAEN_DGTZ_MallocReadoutBuffer(handle,&buffer,&size);
+        ret = CAEN_DGTZ_MallocReadoutBuffer(handle, &buffer, &size);
         ret = CAEN_DGTZ_AllocateEvent(handle, (void**)&Event16);
+        usleep(300000);
         ret = CAEN_DGTZ_ClearData(handle);
-
         ret = CAEN_DGTZ_SWStartAcquisition(handle);
         unsigned int offset, thres;
         for(int chl=0; chl<8; chl++) {
             CAEN_DGTZ_GetChannelDCOffset( handle, chl, &offset );
             CAEN_DGTZ_GetChannelTriggerThreshold( handle, chl, &thres );
-        //cout<<offset<<" "<<thres<<"  ";
+            cout<<offset<<" "<<thres<<"  ";
         }
-    QuitProgram:
-        // Free the buffers and close the digitizers
-            //ret = CAEN_DGTZ_ClearData(handle);
-            ret = CAEN_DGTZ_FreeReadoutBuffer(&buffer);
-            ret = CAEN_DGTZ_SWStopAcquisition(handle);
-            ret = CAEN_DGTZ_CloseDigitizer(handle);   
 
 }
 void ReadoutData::SampleOne(){
-    while(1) {
+    int times = 0;
+    while(times<100) {
         int Trigger = 1;
         uint32_t nEvts = 0;
         uint32_t FADCdataReady;
         // Check vme status register to get the data ready bit
         ret = CAEN_DGTZ_ReadRegister(handle, 0xEF04, &FADCdataReady); //vme status
         FADCdataReady = FADCdataReady & 0x1;
-        //  cout<<"Data Ready : "<<FADCdataReady<<endl;
         Trigger = Trigger & FADCdataReady;
         long long dtWaveform;
         if( Trigger ) {
+            cout<<"Data Ready : "<<FADCdataReady<<endl;
             Readout.ChannelId.clear();
             Readout.Waveform.clear();
             ret = CAEN_DGTZ_ReadData(handle,CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,buffer,&bsize);  /* Read the buffer from the digitizer */
@@ -113,6 +112,7 @@ void ReadoutData::SampleOne(){
             ret = CAEN_DGTZ_GetEventInfo(handle,buffer,bsize,0,&eventInfo,&evtptr);
             ret = CAEN_DGTZ_DecodeEvent(handle,evtptr,(void**)&Event16);
             Ns = Event16->ChSize[0];
+            cout<<"Ns:"<<Ns<<endl;
             for(i=0; i<SampleCh.size(); i++)  {
                     OverThreshold = 0;
                     Readout.ChannelId.push_back(SampleCh[i]);
@@ -132,6 +132,7 @@ void ReadoutData::SampleOne(){
             }
         break;
         }
+        times ++;
     }
     return;
 }
@@ -196,6 +197,12 @@ int ReadoutData::readRunNo(string RunNoFN){
         unsigned int NewRunNo=RunNo+1;
         RunNoUpdate << NewRunNo <<endl;
     }
+void ReadoutData::close(){
+    cout<<"close digitizer"<<endl;
+    ret = CAEN_DGTZ_FreeReadoutBuffer(&buffer);
+    ret = CAEN_DGTZ_SWStopAcquisition(handle);
+    ret = CAEN_DGTZ_CloseDigitizer(handle);
+}
 void ReadoutData::sampleData(){
         time_t tm;
         struct tm *ptm;
