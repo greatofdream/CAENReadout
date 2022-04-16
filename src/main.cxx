@@ -37,7 +37,7 @@ int main(int argc, char** argv)
     readout.readRunNo(inputfilename);
     if(type=="trigger"){
         readout.setTriggerMode(1, deviceinfo.boardinfo[0].triggerch);
-    }else if(type=="pedestal"){
+    }else if(type=="darknoise"){
         readout.setTriggerMode(0);
     }else if(type=="extrigger"){
         readout.setTriggerMode(2, deviceinfo.boardinfo[0].triggerch);
