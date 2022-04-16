@@ -1,9 +1,9 @@
 {
     "sampleN": 600,
     "MultiThres": 1,
-    "postTriggerRatio": 96,
+    "postTriggerRatio": 60,
     "BoardN": 1,
     "BoardId": 0,
     "triggerch": 1,
-    "samplech": [2, 3]
+    "samplech": [1, 2, 3]
 }
