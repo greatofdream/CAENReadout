@@ -1,5 +1,11 @@
 No=$(($1-1))
 echo $No
-ssh jinping@JinpingNu "mkdir -p /srv/JinpingData/Jinping_1ton_Data/pmtTest/$No ;"
+user=greatofdream
+host=bat.g.airelinux.org
+remotedir=/mnt/neutrino
+ssh $user@$host "mkdir -p $remotedir/pmtTest/$No ;"
 src="data/Jinping_1ton_*_202*_00000$No*.root"
-scp ${src} jinping@JinpingNu:/srv/JinpingData/Jinping_1ton_Data/pmtTest/$No/
+rsync -a ${src} $user@$host:$remotedir/pmtTest/$No/
+rsync runinfo/$No.csv $user@$host:$remotedir/pmtTest/$No/
+rsync runinfo/RUNINFO.csv $user@$host:$remotedir/pmtTest
+rsync runinfo/PMTINFO.csv $user@$host:$remotedir/pmtTest
