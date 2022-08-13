@@ -20,3 +20,6 @@ end:
 
 copy:
 	cat config/RunNo.txt| xargs ./scpJp.sh
+
+init%: runinfo/%.csv
+	python3 CSVData.py --run $* --origincsv runinfo/$*.csv --runcsv runinfo/RUNINFO.csv --pmtcsv runinfo/PMTINFO.csv --testcsv runinfo/TESTINFO.csv
