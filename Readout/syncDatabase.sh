@@ -3,7 +3,7 @@ echo $No
 user=greatofdream
 host=bat.g.airelinux.org
 remotedir=/mnt/neutrino
-rsync runinfo/$No.csv $user@$host:$remotedir/pmtTest
-rsync runinfo/RUNINFO.csv $user@$host:$remotedir/pmtTest
-rsync runinfo/PMTINFO.csv $user@$host:$remotedir/pmtTest
-rsync runinfo/TESTINFO.csv $user@$host:$remotedir/pmtTest
+rsync -P runinfo/$No.csv $user@$host:$remotedir/pmtTest
+rsync -P runinfo/RUNINFO.csv $user@$host:$remotedir/pmtTest
+rsync -P runinfo/PMTINFO.csv $user@$host:$remotedir/pmtTest
+rsync -P runinfo/TESTINFO.csv $user@$host:$remotedir/pmtTest
