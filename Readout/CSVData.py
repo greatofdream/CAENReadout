@@ -5,8 +5,10 @@
 python3 CSVData.py --run 697 --origincsv runinfo/697.csv --runcsv runinfo/RUNINFO.csv --pmtcsv runinfo/PMTINFO.csv --testcsv runinfo/TESTINFO.csv
 '''
 import pandas as pd
+import numpy as np
 import argparse
 import datetime
+import json
 class CSVReader(object):
     def __init__(self, filename):
         self.csv = pd.read_csv(filename)
@@ -49,6 +51,7 @@ class TESTINFO(CSVReader):
         self.csv.to_csv(self.filename, index=False)
 if __name__=="__main__":
     psr = argparse.ArgumentParser()
+    psr.add_argument('-o', dest='opt', help='output config json')
     psr.add_argument('--origincsv', help='origin csv file')
     psr.add_argument('--runcsv', help='run csv file')
     psr.add_argument('--pmtcsv', help='pmt csv file')
@@ -64,7 +67,26 @@ if __name__=="__main__":
     pmtids = origininfo.getPMT()
     selectpmtinfo = pmtinfo.getPMTInfo(pmtids)
     x = datetime.datetime.now()
-    runinfo.updateAppend(args.run, x.strftime("%Y-%m-%d"), origininfo.getMode())
+    mode = origininfo.getMode()
+    runinfo.updateAppend(args.run, x.strftime("%Y-%m-%d-%H:%M"), mode)
     runinfo.save()
     testinfo.appendRun(args.run, origininfo.csv, selectpmtinfo['HV_r'])
     testinfo.save()
+    # store config run info
+    if mode==0:
+        configjson = 'config/DCRconfig.json'
+    else:
+        configjson = 'config/APconfig.json'
+    with open(configjson, 'r') as ipt:
+        jsondata = json.load(ipt)
+    triggerch = origininfo.csv['TRIGGER'].values[0]
+    jsondata['triggerch'] = int(triggerch)
+    if mode==0:
+        jsondata['samplech'] = [int(i) for i in origininfo.csv['CHANNEL'].values]
+    else:
+        jsondata['samplech'] = [int(i) for i in np.insert(origininfo.csv['CHANNEL'].values, 0, triggerch)]
+    print(jsondata)
+    with open(args.opt, 'w') as opt:
+        json.dump(jsondata, opt)
+
+
