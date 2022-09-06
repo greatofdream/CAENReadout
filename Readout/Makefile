@@ -24,5 +24,6 @@ copy:
 
 runinfo/%.json: runinfo/%.csv
 	python3 CSVData.py --run $* --origincsv runinfo/$*.csv --runcsv runinfo/RUNINFO.csv --pmtcsv runinfo/PMTINFO.csv --testcsv runinfo/TESTINFO.csv -o $@
-
+flow: runinfo/$(RunNo).json
+	python3 flow.py -i $^
 .DELETE_ON_ERROR:

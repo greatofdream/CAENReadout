@@ -34,9 +34,9 @@ class RUNINFO(CSVReader):
     def __init__(self, filename):
         super(RUNINFO, self).__init__(filename)
         self.runinfo = self.csv.set_index('RUNNO')
-    def updateAppend(self, runno, date, mode):
+    def updateAppend(self, runno, date, mode, time=60):
         # 更新或新增某一个run
-        self.runinfo.loc[runno] = (date, mode)
+        self.runinfo.loc[runno] = (date, mode, time)
     def save(self):
         self.runinfo.reset_index().to_csv(self.filename, index=False)
 class TESTINFO(CSVReader):
@@ -61,17 +61,9 @@ if __name__=="__main__":
 
     pmtinfo = PMTINFO(args.pmtcsv)
     origininfo = OriginINFO(args.origincsv)
+    mode = origininfo.getMode()
     runinfo = RUNINFO(args.runcsv)
     testinfo = TESTINFO(args.testcsv)
-
-    pmtids = origininfo.getPMT()
-    selectpmtinfo = pmtinfo.getPMTInfo(pmtids)
-    x = datetime.datetime.now()
-    mode = origininfo.getMode()
-    runinfo.updateAppend(args.run, x.strftime("%Y-%m-%d-%H:%M"), mode)
-    runinfo.save()
-    testinfo.appendRun(args.run, origininfo.csv, selectpmtinfo['HV_r'])
-    testinfo.save()
     # store config run info
     if mode==0:
         configjson = 'config/DCRconfig.json'
@@ -79,6 +71,16 @@ if __name__=="__main__":
         configjson = 'config/APconfig.json'
     with open(configjson, 'r') as ipt:
         jsondata = json.load(ipt)
+    timeLength = jsondata['time']
+    pmtids = origininfo.getPMT()
+    selectpmtinfo = pmtinfo.getPMTInfo(pmtids)
+    x = datetime.datetime.now()
+    
+    runinfo.updateAppend(args.run, x.strftime("%Y-%m-%d-%H:%M"), mode, timeLength)
+    runinfo.save()
+    testinfo.appendRun(args.run, origininfo.csv, selectpmtinfo['HV_r'])
+    testinfo.save()
+    
     triggerch = origininfo.csv['TRIGGER'].values[0]
     jsondata['triggerch'] = int(triggerch)
     if mode==0:
