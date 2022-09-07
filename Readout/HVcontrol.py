@@ -50,7 +50,7 @@ class Session(snmpSessionBaseClass):
     def onCh(self, boardid, channel):
         self.Set('outputSwitch.u{}'.format(boardid*100 + channel), 'i 1')
     def offCh(self, boardid, channel):
-        self.Set('outputSwitch.u{} i {}'.format(boardid*100 + channel), 'i 0')
+        self.Set('outputSwitch.u{}'.format(boardid*100 + channel), 'i 0')
 device_ip = '192.168.1.15'
 board_i = 4
 if __name__ == '__main__':
@@ -65,12 +65,13 @@ if __name__ == '__main__':
     pmtids = origininfo.getPMT()
     selectpmtinfo = pmtinfo.getPMTInfo(pmtids)
     HVs, channels = selectpmtinfo['HV_r'].values, origininfo.csv['HVCHANNEL'].values
+    print(HVs, channels)
     if args.on:
         # set the HV
         session = Session(host=device_ip, community='public', version=2)
         for HV, channel in zip(HVs, channels):
             session.getVoltage(board_i, channel)
-            # session.setVoltage(board_i, channel, HV)
+            session.setVoltage(board_i, channel, HV)
             # open the HV
             session.onCh(board_i, channel)
         # wait for the HV on

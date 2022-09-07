@@ -46,7 +46,9 @@ class TESTINFO(CSVReader):
     def appendRun(self, runno, origininfo, HV):
         origininfo['RUNNO'] = runno
         origininfo['HV'] = HV.astype('float64').values
+        print(origininfo)
         self.csv = pd.concat([self.csv, origininfo], join="inner")
+        return origininfo
     def save(self):
         self.csv.to_csv(self.filename, index=False)
 if __name__=="__main__":
