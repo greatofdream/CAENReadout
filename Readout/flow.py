@@ -16,11 +16,11 @@ def startSample():
     process = subprocess.Popen('make begin', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     Logger(process)
 def HVon():
-    print('HV on')
+    print('HV on at {}'.format(datetime.datetime.now()))
     process = subprocess.Popen('make HVon', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     Logger(process)
 def HVoff():
-    print('HV off')
+    print('HV off at {}'.format(datetime.datetime.now()))
     process = subprocess.Popen('make HVoff',
         shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     Logger(process)
@@ -29,6 +29,7 @@ def endSample():
     subprocess.Popen('make end', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     process = subprocess.Popen('make copy', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     Logger(process)
+    print('finish copy at {}'.format(datetime.datetime.now()))
 psr = argparse.ArgumentParser()
 psr.add_argument('-i', dest='ipt', help='config json')
 psr.add_argument('--cool', type=int, default=coolingTime, help='coolingTime')

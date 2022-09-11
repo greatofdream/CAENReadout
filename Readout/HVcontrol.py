@@ -78,7 +78,7 @@ if __name__ == '__main__':
         time.sleep(30)
         # get the HV
         for HV, channel in zip(HVs, channels):
-            session.getVoltage(board_i, channel)
+            session.getVoltageSense(board_i, channel)
     else:
         # close the HV
         session = Session(host=device_ip, community='public', version=2)

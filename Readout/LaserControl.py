@@ -55,3 +55,4 @@ if __name__=="__main__":
         laser.set_state(1)
     else:
         laser.set_state(0)
+    laser.check_state()
