@@ -69,8 +69,10 @@ if __name__=="__main__":
     # store config run info
     if mode==0:
         configjson = 'config/DCRconfig.json'
-    else:
+    elif mode==1:
         configjson = 'config/APconfig.json'
+    elif mode==2:
+        configjson = 'config/MCPconfig.json'
     with open(configjson, 'r') as ipt:
         jsondata = json.load(ipt)
     timeLength = jsondata['time']
@@ -87,7 +89,9 @@ if __name__=="__main__":
     jsondata['triggerch'] = int(triggerch)
     if mode==0:
         jsondata['samplech'] = [int(i) for i in origininfo.csv['CHANNEL'].values]
-    else:
+    elif mode==1:
+        jsondata['samplech'] = [int(i) for i in np.insert(origininfo.csv['CHANNEL'].values, 0, triggerch)]
+    elif mode==2:
         jsondata['samplech'] = [int(i) for i in np.insert(origininfo.csv['CHANNEL'].values, 0, triggerch)]
     print(jsondata)
     with open(args.opt, 'w') as opt:

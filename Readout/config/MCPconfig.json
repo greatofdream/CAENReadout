@@ -1,0 +1,10 @@
+{
+    "sampleN": 3000,
+    "MultiThres": 1,
+    "postTriggerRatio": 96,
+    "BoardN": 1,
+    "BoardId": 0,
+    "triggerch": 1,
+    "samplech": [1, 2, 3, 4, 5],
+    "time": 240
+}
